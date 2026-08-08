@@ -16,6 +16,11 @@ use tauri::{
 #[cfg(windows)]
 use windows_sys::Win32::{
     Graphics::Gdi::{GetDC, ReleaseDC},
+    System::Registry::{
+        RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW,
+        RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE,
+        REG_SZ,
+    },
     UI::ColorSystem::SetDeviceGammaRamp,
 };
 
@@ -384,67 +389,35 @@ fn export_profile(profile: ColorProfile) -> Result<String, String> {
 
 #[tauri::command]
 fn get_startup_settings() -> Result<StartupSettings, String> {
-    let shortcut = startup_shortcut_path()?;
-
-    if !shortcut.exists() {
+    let Some(command) = startup_registry_value()? else {
         return Ok(StartupSettings {
             enabled: false,
             start_minimized: false,
         });
-    }
+    };
 
     Ok(StartupSettings {
         enabled: true,
-        start_minimized: shortcut_arguments(&shortcut)?.contains("--start-minimized"),
+        start_minimized: command.contains("--start-minimized"),
     })
 }
 
 #[tauri::command]
 fn set_startup_settings(enabled: bool, start_minimized: bool) -> Result<String, String> {
-    let shortcut = startup_shortcut_path()?;
-
     if !enabled {
-        if shortcut.exists() {
-            fs::remove_file(&shortcut)
-                .map_err(|error| format!("Could not remove startup shortcut: {error}"))?;
-        }
+        remove_startup_registry_value()?;
+        remove_legacy_startup_shortcut()?;
         return Ok("Start with Windows disabled.".to_string());
     }
 
-    let Some(parent) = shortcut.parent() else {
-        return Err("Could not resolve Startup folder.".to_string());
-    };
-    fs::create_dir_all(parent).map_err(|error| format!("Could not create Startup folder: {error}"))?;
-
     let exe = std::env::current_exe().map_err(|error| format!("Could not find Colorify executable: {error}"))?;
-    let working_dir = exe
-        .parent()
-        .ok_or("Could not resolve Colorify install folder.".to_string())?;
-    let arguments = if start_minimized { "--start-minimized" } else { "" };
-
-    let script = format!(
-        "$shell = New-Object -ComObject WScript.Shell; \
-         $shortcut = $shell.CreateShortcut({}); \
-         $shortcut.TargetPath = {}; \
-         $shortcut.Arguments = {}; \
-         $shortcut.WorkingDirectory = {}; \
-         $shortcut.IconLocation = {}; \
-         $shortcut.Save()",
-        powershell_string(&shortcut),
-        powershell_string(&exe),
-        powershell_string(arguments),
-        powershell_string(working_dir),
-        powershell_string(&exe),
-    );
-
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script])
-        .output()
-        .map_err(|error| format!("Could not create startup shortcut: {error}"))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    let mut command = format!("\"{}\"", exe.display());
+    if start_minimized {
+        command.push_str(" --start-minimized");
     }
+
+    set_startup_registry_value(&command)?;
+    remove_legacy_startup_shortcut()?;
 
     if start_minimized {
         Ok("Start with Windows enabled. Colorify will start minimized.".to_string())
@@ -458,7 +431,7 @@ fn data_folder() -> Result<PathBuf, String> {
     Ok(PathBuf::from(appdata).join("Colorify"))
 }
 
-fn startup_shortcut_path() -> Result<PathBuf, String> {
+fn legacy_startup_shortcut_path() -> Result<PathBuf, String> {
     let appdata = std::env::var_os("APPDATA").ok_or("APPDATA is not available.".to_string())?;
     Ok(PathBuf::from(appdata)
         .join("Microsoft")
@@ -469,29 +442,174 @@ fn startup_shortcut_path() -> Result<PathBuf, String> {
         .join("Colorify.lnk"))
 }
 
-fn shortcut_arguments(shortcut: &PathBuf) -> Result<String, String> {
-    let script = format!(
-        "$shell = New-Object -ComObject WScript.Shell; \
-         $shortcut = $shell.CreateShortcut({}); \
-         Write-Output $shortcut.Arguments",
-        powershell_string(shortcut),
-    );
-
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script])
-        .output()
-        .map_err(|error| format!("Could not inspect startup shortcut: {error}"))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+fn remove_legacy_startup_shortcut() -> Result<(), String> {
+    let shortcut = legacy_startup_shortcut_path()?;
+    if shortcut.exists() {
+        fs::remove_file(&shortcut)
+            .map_err(|error| format!("Could not remove old startup shortcut: {error}"))?;
     }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(())
 }
 
-fn powershell_string(value: impl AsRef<std::ffi::OsStr>) -> String {
-    let text = value.as_ref().to_string_lossy().replace('\'', "''");
-    format!("'{text}'")
+#[cfg(windows)]
+const STARTUP_RUN_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+#[cfg(windows)]
+const STARTUP_VALUE_NAME: &str = "Colorify";
+
+#[cfg(windows)]
+fn startup_registry_value() -> Result<Option<String>, String> {
+    let key_path = wide_null(STARTUP_RUN_KEY);
+    let value_name = wide_null(STARTUP_VALUE_NAME);
+    let mut key: HKEY = std::ptr::null_mut();
+
+    let open_result = unsafe {
+        RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            key_path.as_ptr(),
+            0,
+            KEY_QUERY_VALUE,
+            &mut key,
+        )
+    };
+
+    if open_result != 0 {
+        return Ok(None);
+    }
+
+    let mut data_type = 0;
+    let mut byte_len = 0;
+    let query_size = unsafe {
+        RegQueryValueExW(
+            key,
+            value_name.as_ptr(),
+            std::ptr::null_mut(),
+            &mut data_type,
+            std::ptr::null_mut(),
+            &mut byte_len,
+        )
+    };
+
+    if query_size != 0 || data_type != REG_SZ || byte_len == 0 {
+        unsafe { RegCloseKey(key) };
+        return Ok(None);
+    }
+
+    let mut buffer = vec![0u16; (byte_len as usize + 1) / 2];
+    let query_value = unsafe {
+        RegQueryValueExW(
+            key,
+            value_name.as_ptr(),
+            std::ptr::null_mut(),
+            &mut data_type,
+            buffer.as_mut_ptr().cast::<u8>(),
+            &mut byte_len,
+        )
+    };
+    unsafe { RegCloseKey(key) };
+
+    if query_value != 0 {
+        return Err(format!("Could not read startup registry value: {query_value}"));
+    }
+
+    if let Some(position) = buffer.iter().position(|value| *value == 0) {
+        buffer.truncate(position);
+    }
+
+    Ok(Some(String::from_utf16_lossy(&buffer)))
+}
+
+#[cfg(not(windows))]
+fn startup_registry_value() -> Result<Option<String>, String> {
+    Ok(None)
+}
+
+#[cfg(windows)]
+fn set_startup_registry_value(command: &str) -> Result<(), String> {
+    let key_path = wide_null(STARTUP_RUN_KEY);
+    let value_name = wide_null(STARTUP_VALUE_NAME);
+    let value = wide_null(command);
+    let mut key: HKEY = std::ptr::null_mut();
+
+    let create_result = unsafe {
+        RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            key_path.as_ptr(),
+            0,
+            std::ptr::null_mut(),
+            REG_OPTION_NON_VOLATILE,
+            KEY_SET_VALUE,
+            std::ptr::null(),
+            &mut key,
+            std::ptr::null_mut(),
+        )
+    };
+
+    if create_result != 0 {
+        return Err(format!("Could not open Windows startup registry key: {create_result}"));
+    }
+
+    let set_result = unsafe {
+        RegSetValueExW(
+            key,
+            value_name.as_ptr(),
+            0,
+            REG_SZ,
+            value.as_ptr().cast::<u8>(),
+            (value.len() * 2) as u32,
+        )
+    };
+    unsafe { RegCloseKey(key) };
+
+    if set_result != 0 {
+        return Err(format!("Could not set Windows startup registry value: {set_result}"));
+    }
+
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn set_startup_registry_value(_command: &str) -> Result<(), String> {
+    Err("Start with Windows is only available on Windows.".to_string())
+}
+
+#[cfg(windows)]
+fn remove_startup_registry_value() -> Result<(), String> {
+    let key_path = wide_null(STARTUP_RUN_KEY);
+    let value_name = wide_null(STARTUP_VALUE_NAME);
+    let mut key: HKEY = std::ptr::null_mut();
+
+    let open_result = unsafe {
+        RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            key_path.as_ptr(),
+            0,
+            KEY_SET_VALUE,
+            &mut key,
+        )
+    };
+
+    if open_result != 0 {
+        return Ok(());
+    }
+
+    let delete_result = unsafe { RegDeleteValueW(key, value_name.as_ptr()) };
+    unsafe { RegCloseKey(key) };
+
+    if delete_result != 0 && delete_result != 2 {
+        return Err(format!("Could not remove Windows startup registry value: {delete_result}"));
+    }
+
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn remove_startup_registry_value() -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(windows)]
+fn wide_null(value: &str) -> Vec<u16> {
+    value.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
 fn safe_file_name(name: &str) -> String {

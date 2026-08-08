@@ -50,7 +50,7 @@ type StartupSettings = {
 }
 
 const appWindow = getCurrentWindow()
-const appVersion = 'V1.5.1'
+const appVersion = 'V1.5.2'
 const profiles = ref<Profile[]>([])
 const selectedName = ref('Default')
 const status = ref('Current profile applied.')

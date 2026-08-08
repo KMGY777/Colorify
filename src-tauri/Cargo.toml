@@ -1,6 +1,6 @@
 [package]
 name = "colorify"
-version = "1.5.1"
+version = "1.5.2"
 description = "Display color studio"
 authors = ["Colorify"]
 license-file = "../LICENSE.txt"
@@ -26,4 +26,4 @@ tauri = { version = "2.11.3", features = ["tray-icon"] }
 tauri-plugin-log = "2"
 tauri-plugin-single-instance = "2"
 rfd = "0.15"
-windows-sys = { version = "0.61", features = ["Win32_Graphics_Gdi", "Win32_UI_ColorSystem", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_Graphics_Gdi", "Win32_System_Registry", "Win32_UI_ColorSystem", "Win32_UI_WindowsAndMessaging"] }
