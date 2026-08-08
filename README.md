@@ -4,6 +4,14 @@ Colorify is a Windows desktop utility for adjusting display color settings from 
 
 It provides controls for brightness, contrast, saturation, hue, gamma, and color temperature, with saved presets, import/export, tray behavior, and optional startup settings.
 
+## Download
+
+Colorify is available as a Windows MSI installer from the GitHub Releases page:
+
+https://github.com/KMGY777/Colorify/releases
+
+A Microsoft Store release is in progress.
+
 ## Features
 
 - Adjust display color controls from one desktop app.
