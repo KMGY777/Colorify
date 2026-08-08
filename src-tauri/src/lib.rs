@@ -53,7 +53,9 @@ pub fn run() {
             choose_wallpaper,
             load_wallpaper,
             import_profiles,
-            export_profile
+            export_profile,
+            get_startup_settings,
+            set_startup_settings
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -64,6 +66,8 @@ pub fn run() {
                 )?;
             }
 
+            let start_minimized = std::env::args().any(|arg| arg == "--start-minimized");
+
             if let Some(window) = app.get_webview_window("main") {
                 let minimum_size = Size::Logical(LogicalSize {
                     width: MIN_WINDOW_WIDTH,
@@ -72,6 +76,9 @@ pub fn run() {
                 let _ = window.set_min_size(Some(minimum_size));
                 if let Some(icon) = app.default_window_icon() {
                     let _ = window.set_icon(icon.clone());
+                }
+                if start_minimized {
+                    let _ = window.hide();
                 }
             }
 
@@ -188,6 +195,13 @@ struct ProfileFile {
 struct WallpaperSelection {
     path: String,
     data_url: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StartupSettings {
+    enabled: bool,
+    start_minimized: bool,
 }
 
 #[derive(Debug, Default)]
@@ -368,9 +382,116 @@ fn export_profile(profile: ColorProfile) -> Result<String, String> {
     Ok(format!("Exported {}.", path.display()))
 }
 
+#[tauri::command]
+fn get_startup_settings() -> Result<StartupSettings, String> {
+    let shortcut = startup_shortcut_path()?;
+
+    if !shortcut.exists() {
+        return Ok(StartupSettings {
+            enabled: false,
+            start_minimized: false,
+        });
+    }
+
+    Ok(StartupSettings {
+        enabled: true,
+        start_minimized: shortcut_arguments(&shortcut)?.contains("--start-minimized"),
+    })
+}
+
+#[tauri::command]
+fn set_startup_settings(enabled: bool, start_minimized: bool) -> Result<String, String> {
+    let shortcut = startup_shortcut_path()?;
+
+    if !enabled {
+        if shortcut.exists() {
+            fs::remove_file(&shortcut)
+                .map_err(|error| format!("Could not remove startup shortcut: {error}"))?;
+        }
+        return Ok("Start with Windows disabled.".to_string());
+    }
+
+    let Some(parent) = shortcut.parent() else {
+        return Err("Could not resolve Startup folder.".to_string());
+    };
+    fs::create_dir_all(parent).map_err(|error| format!("Could not create Startup folder: {error}"))?;
+
+    let exe = std::env::current_exe().map_err(|error| format!("Could not find Colorify executable: {error}"))?;
+    let working_dir = exe
+        .parent()
+        .ok_or("Could not resolve Colorify install folder.".to_string())?;
+    let arguments = if start_minimized { "--start-minimized" } else { "" };
+
+    let script = format!(
+        "$shell = New-Object -ComObject WScript.Shell; \
+         $shortcut = $shell.CreateShortcut({}); \
+         $shortcut.TargetPath = {}; \
+         $shortcut.Arguments = {}; \
+         $shortcut.WorkingDirectory = {}; \
+         $shortcut.IconLocation = {}; \
+         $shortcut.Save()",
+        powershell_string(&shortcut),
+        powershell_string(&exe),
+        powershell_string(arguments),
+        powershell_string(working_dir),
+        powershell_string(&exe),
+    );
+
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script])
+        .output()
+        .map_err(|error| format!("Could not create startup shortcut: {error}"))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    if start_minimized {
+        Ok("Start with Windows enabled. Colorify will start minimized.".to_string())
+    } else {
+        Ok("Start with Windows enabled.".to_string())
+    }
+}
+
 fn data_folder() -> Result<PathBuf, String> {
     let appdata = std::env::var_os("APPDATA").ok_or("APPDATA is not available.".to_string())?;
     Ok(PathBuf::from(appdata).join("Colorify"))
+}
+
+fn startup_shortcut_path() -> Result<PathBuf, String> {
+    let appdata = std::env::var_os("APPDATA").ok_or("APPDATA is not available.".to_string())?;
+    Ok(PathBuf::from(appdata)
+        .join("Microsoft")
+        .join("Windows")
+        .join("Start Menu")
+        .join("Programs")
+        .join("Startup")
+        .join("Colorify.lnk"))
+}
+
+fn shortcut_arguments(shortcut: &PathBuf) -> Result<String, String> {
+    let script = format!(
+        "$shell = New-Object -ComObject WScript.Shell; \
+         $shortcut = $shell.CreateShortcut({}); \
+         Write-Output $shortcut.Arguments",
+        powershell_string(shortcut),
+    );
+
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script])
+        .output()
+        .map_err(|error| format!("Could not inspect startup shortcut: {error}"))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn powershell_string(value: impl AsRef<std::ffi::OsStr>) -> String {
+    let text = value.as_ref().to_string_lossy().replace('\'', "''");
+    format!("'{text}'")
 }
 
 fn safe_file_name(name: &str) -> String {

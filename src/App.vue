@@ -44,8 +44,13 @@ type WallpaperSelection = {
   dataUrl: string
 }
 
+type StartupSettings = {
+  enabled: boolean
+  startMinimized: boolean
+}
+
 const appWindow = getCurrentWindow()
-const appVersion = 'V1.5.0'
+const appVersion = 'V1.5.1'
 const profiles = ref<Profile[]>([])
 const selectedName = ref('Default')
 const status = ref('Current profile applied.')
@@ -59,6 +64,7 @@ const editText = ref('')
 const wallpaperUrl = ref('')
 const pendingDeleteProfile = ref<Profile | null>(null)
 const showLegal = ref(false)
+const behaviorReady = ref(false)
 
 const current = ref<Profile>({
   name: 'Default',
@@ -433,6 +439,16 @@ onMounted(async () => {
     }
   }
 
+  try {
+    const startup = await invoke<StartupSettings>('get_startup_settings')
+    startWithWindows.value = startup.enabled
+    startMinimized.value = startup.startMinimized
+  } catch (error) {
+    status.value = String(error)
+  } finally {
+    behaviorReady.value = true
+  }
+
   const builtIns = await invoke<Profile[]>('get_profiles')
   const stored = localStorage.getItem('colorify.profiles')
   const storedProfiles = stored ? (JSON.parse(stored) as Profile[]) : []
@@ -469,7 +485,9 @@ onMounted(async () => {
   }
 })
 
-watch([autoApply, startWithWindows, startMinimized], () => {
+watch([autoApply, startWithWindows, startMinimized], async () => {
+  if (!startWithWindows.value && startMinimized.value) startMinimized.value = false
+
   localStorage.setItem(
     'colorify.behavior',
     JSON.stringify({
@@ -478,10 +496,17 @@ watch([autoApply, startWithWindows, startMinimized], () => {
       startMinimized: startMinimized.value,
     }),
   )
-})
 
-watch(startWithWindows, (enabled) => {
-  if (!enabled) startMinimized.value = false
+  if (!behaviorReady.value) return
+
+  try {
+    status.value = await invoke<string>('set_startup_settings', {
+      enabled: startWithWindows.value,
+      startMinimized: startMinimized.value,
+    })
+  } catch (error) {
+    status.value = String(error)
+  }
 })
 </script>
 
