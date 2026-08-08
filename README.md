@@ -4,6 +4,12 @@ Colorify is a Windows desktop utility for adjusting display color settings from 
 
 It provides controls for brightness, contrast, saturation, hue, gamma, and color temperature, with saved presets, import/export, tray behavior, and optional startup settings.
 
+## Why Colorify
+
+Colorify applies color adjustments at the Windows desktop level, so the effect can be visible not only on your monitor, but also in normal screen recordings and screen captures.
+
+That matters because many monitor OSD settings and some GPU control panel adjustments only affect what you personally see on the physical display. Colorify is built for users who want their tuned look to carry into recorded gameplay, desktop captures, and shared clips too.
+
 ## Download
 
 Colorify is available as a Windows MSI installer from the GitHub Releases page:
@@ -14,6 +20,7 @@ A Microsoft Store release is in progress.
 
 ## Features
 
+- Capture-visible screen color adjustments for recordings and shared clips.
 - Adjust display color controls from one desktop app.
 - Create, save, import, and export custom presets.
 - Includes ready-made presets for visibility, gaming, vibrant color, and balanced everyday use.
