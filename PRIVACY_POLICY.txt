@@ -1,0 +1,24 @@
+Colorify Privacy Policy
+
+Effective date: 2026-08-08
+
+Colorify is a local desktop application. It is designed to adjust display color
+settings on your device.
+
+Data Colorify stores locally:
+- saved color profiles;
+- the currently selected profile and current slider values;
+- behavior settings such as auto apply, start with Windows, and start minimized;
+- optional wallpaper path if you choose a background image.
+
+Colorify does not intentionally collect, sell, or share personal information.
+Colorify does not require an account. Colorify does not include analytics,
+advertising trackers, or telemetry in this build.
+
+If you import or export profile files, those files are handled locally on your
+device. If you choose a wallpaper image, the selected file path is stored locally
+so the app can reload it.
+
+Third-party components used by Colorify may be subject to their own licenses and
+notices. See THIRD-PARTY-NOTICES.txt.
+

@@ -1,0 +1,15 @@
+Colorify third-party notices
+
+Flaticon assets
+---------------
+Some icons used in Colorify are provided by Flaticon.
+Icons made by Flaticon contributors from www.flaticon.com.
+
+Flaticon assets are used under the Flaticon License, which allows personal and
+commercial use with attribution.
+License: https://www.flaticon.com/license
+
+Open-source components
+----------------------
+Colorify is built with Tauri, Vue, Rust, and related open-source dependencies.
+Their respective licenses remain with their authors.

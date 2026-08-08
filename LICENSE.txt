@@ -1,0 +1,22 @@
+Colorify End User License Agreement
+
+Copyright (c) 2026 Colorify. All rights reserved.
+
+This software is licensed, not sold. You may install and use Colorify for
+personal or commercial display color adjustment on devices you own or control.
+
+You may not:
+- redistribute, resell, sublicense, rent, lease, or package Colorify as your own;
+- reverse engineer, decompile, or modify Colorify except where allowed by law;
+- remove product names, copyright notices, license notices, or third-party
+  attribution notices;
+- use Colorify to violate game, platform, or service rules.
+
+Colorify is provided "as is" without warranties of any kind. To the maximum
+extent allowed by law, Colorify is not liable for indirect, incidental, special,
+consequential, or punitive damages, or for loss of data, profits, access, or
+account status.
+
+Colorify is not affiliated with Microsoft, NVIDIA, AMD, Intel, Apple, Epic
+Games, Riot Games, Valve, or any game publisher.
+

@@ -1,0 +1,34 @@
+Colorify Terms and Disclaimer
+
+Effective date: 2026-08-08
+
+Colorify is a display color adjustment tool. It changes screen color output
+using operating-system level display APIs where available.
+
+No game memory access:
+Colorify is not designed to read game memory, inject into games, modify game
+files, automate gameplay, or bypass anti-cheat systems.
+
+No guarantee:
+Colorify does not guarantee higher FPS, competitive advantage, account safety,
+compatibility with every display driver, or acceptance under every game,
+platform, tournament, school, workplace, or service rule.
+
+User responsibility:
+You are responsible for checking whether display filters, overlays, color tools,
+or startup/background tools are allowed under the rules that apply to you.
+
+Display behavior:
+Some monitors, GPUs, drivers, recording tools, streaming tools, remote desktop
+tools, or games may handle color adjustments differently. Some settings may be
+limited or rejected by your display driver.
+
+Health and comfort:
+Strong brightness, contrast, saturation, hue, gamma, or temperature changes can
+cause eye strain or discomfort. Stop using aggressive settings if they bother
+you.
+
+Third-party marks:
+Colorify is not affiliated with Microsoft, NVIDIA, AMD, Intel, Apple, Epic Games,
+Riot Games, Valve, or any game publisher.
+

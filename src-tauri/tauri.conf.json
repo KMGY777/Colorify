@@ -1,0 +1,51 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Colorify",
+  "mainBinaryName": "Colorify",
+  "version": "1.5.0",
+  "identifier": "app.colorify.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Colorify",
+        "width": 1360,
+        "height": 840,
+        "minWidth": 1120,
+        "minHeight": 820,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "licenseFile": "../LICENSE.txt",
+    "resources": {
+      "../LICENSE.txt": "legal/LICENSE.txt",
+      "../TERMS.txt": "legal/TERMS.txt",
+      "../PRIVACY_POLICY.txt": "legal/PRIVACY_POLICY.txt",
+      "../THIRD-PARTY-NOTICES.txt": "legal/THIRD-PARTY-NOTICES.txt"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    }
+  }
+}
