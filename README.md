@@ -12,11 +12,13 @@ That matters because many monitor OSD settings and some GPU control panel adjust
 
 ## Download
 
-Colorify is available as a Windows MSI installer from the GitHub Releases page:
+Colorify is available on the Microsoft Store:
+
+https://apps.microsoft.com/detail/9N4VW2LKQBTT
+
+The Windows MSI installer is also available from the GitHub Releases page:
 
 https://github.com/KMGY777/Colorify/releases
-
-A Microsoft Store release is in progress.
 
 ## Features
 
